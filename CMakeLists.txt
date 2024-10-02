@@ -14,7 +14,9 @@ add_executable(poed main.cpp
         uci_config.cpp
         uci_config.h
         poe_controller.cpp
-        poe_controller.h)
+        poe_controller.h
+        poe_simulator.cpp
+        poe_simulator.h)
 
 target_link_libraries(poed ${UCI_LIBRARY})
 include_directories(poed clipp/include)

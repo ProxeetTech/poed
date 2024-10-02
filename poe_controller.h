@@ -2,8 +2,10 @@
 #define POED_POE_CONTROLLER_H
 
 #include <string>
+#include <utility>
 #include <vector>
 #include "utils.h"
+#include "poe_simulator.h"
 
 struct PoePort {
     std::string contr_path;
@@ -20,6 +22,7 @@ struct PoePort {
     enum PoeMode mode;
     double budget;
     bool test_mode;
+    PoePortSim port_sim;
 
     PoePort();
 
@@ -27,6 +30,7 @@ struct PoePort {
     bool powerOff();
     bool powerOn();
     bool setMode(enum PoeMode mode);
+    void initSim();
 };
 
 struct PoeController {

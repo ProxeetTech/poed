@@ -2,6 +2,7 @@
 #include "logs.h"
 #include "clipp.h"
 #include "poe_controller.h"
+#include "poe_simulator.h"
 #include <unistd.h>
 #include <thread>
 #include <iostream>
@@ -14,29 +15,39 @@ static void controlBudgetsWithSleep(vector<PoeController>& controllers, int slee
 int main(int argc, char *argv[]) {
     /* Parse command line arguments */
     vector<string> wrong;
-    int monitor_period_us = 0;
+    bool show_help = false;
+    int monitor_period_us = 1000000;
+
+
     auto cli = (
-            (
-                    clipp::option("-p", "--monitor-period") &
-                    clipp::value("PoE ports monitoring period in us (default 1000000 us)", monitor_period_us)
-                    .if_missing([&] { monitor_period_us = 1000000; })),
+            clipp::option("-p", "--monitor-period") &
+            clipp::value("PoE ports monitoring period in us (default 1000000 us)", monitor_period_us),
             clipp::option("-t").set(test_mode).doc("Enable test mode that emulates PoE ports data"),
+            clipp::option("-h", "--help").set(show_help).doc("Show help information"),
             clipp::any_other(wrong)
     );
 
-    if (parse(argc, argv, cli) && wrong.empty()) {
+    if (clipp::parse(argc, argv, cli) && wrong.empty()) {
+        if (show_help) {
+            cout << "Usage:\n" << clipp::make_man_page(cli, argv[0]) << '\n';
+            return 0;
+        }
+
         cout << "PoE daemon started, with monitor period: " << monitor_period_us << " us" << endl;
+        if (test_mode) {
+            cout << "Test mode enabled." << endl;
+        }
     } else {
-        for (const auto &arg: wrong) {
+        for (const auto &arg : wrong) {
             cout << "'" << arg << "' is not a valid command line argument\n";
         }
-        cout << "Usage:\n" << clipp::usage_lines(cli, argv[0]) << '\n';
+        cout << "Usage:\n" << clipp::make_man_page(cli, argv[0]) << '\n';
         return -1;
     }
 
     /* Process UCI config */
     const char* config_name = "poed";
-    const std::string config_path = "/etc/config/poed";
+    const string config_path = "/etc/config/poed";
 
     initialize_logging(config_name, get_syslog_level("debug"));
     UciConfig config(config_name);
@@ -49,16 +60,20 @@ int main(int argc, char *argv[]) {
         syslog(LOG_ERR, "Configuration import error\n");
     }
 
-    /* Check config */
-    if (!validateUciConfig(config)) {
-        syslog(LOG_ERR, "Configuration is not valid\n");
-        return -1;
+    if (test_mode) {
+        cout << "PoE daemon working in test mode, skip UCI config validation\n";
+    } else {
+        /* Check config */
+        if (!validateUciConfig(config)) {
+            syslog(LOG_ERR, "Configuration is not valid\n");
+            return -1;
+        }
     }
 
     auto sections = config.getSections();
 
     /* Reinitialize logger with proper log level */
-    std::string log_level_str = sections["general"].at(0).options["log_level"];
+    string log_level_str = sections["general"].at(0).options["log_level"];
     int log_level = get_syslog_level(log_level_str);
 
     closelog();
@@ -90,6 +105,11 @@ int main(int argc, char *argv[]) {
                 p.budget = stod(port.options["power_budget"]);
                 p.mode = parsePoeMode(port.options["mode"]);
                 p.priority = stoi(port.options["priority"]);
+
+                /* Set system test mode flag to port */
+                p.test_mode = test_mode;
+                p.initSim();
+
                 c.ports.at(p.index) = p;
 
                 /* Set current port with corresponded mode */
@@ -98,9 +118,6 @@ int main(int argc, char *argv[]) {
                            port.options["mode"].c_str(), p.index, p.contr_path.c_str());
                     return -1;
                 }
-
-                /* Set system test mode flag to port */
-                p.test_mode = test_mode;
             }
         }
         controllers.push_back(c);
@@ -108,8 +125,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* Controlling budgets */
-    int sleep_time_us = 1000000;
-    thread budgetThread(controlBudgetsWithSleep, std::ref(controllers), sleep_time_us);
+    thread budgetThread(controlBudgetsWithSleep, std::ref(controllers), monitor_period_us);
 
 
     syslog(LOG_INFO, "Daemon is shutting down");
@@ -166,7 +182,7 @@ static int controlBudgets(vector<PoeController>& controllers) {
             }
         } else if (total_power + POE_PWR_HYSTERESIS <= controller.total_budget) {
             /* Mark overbudget ports as permitted to enable */
-            vector<PoePort> overbudget_ports;
+            vector<PoePort*> overbudget_ports;
             for (auto& port: controller.ports) {
                 if (port.state == PoeState::OPEN) {
                     if (port.overbudget_flag) {
@@ -174,7 +190,7 @@ static int controlBudgets(vector<PoeController>& controllers) {
                     }
                 } else {
                     if (port.overbudget_flag && port.enable_perm) {
-                        overbudget_ports.push_back(port);
+                        overbudget_ports.push_back(&port);
                     }
                 }
             }
@@ -183,23 +199,29 @@ static int controlBudgets(vector<PoeController>& controllers) {
             int max_prio_ind = -1;
             int ind_cnt = 0;
             for (const auto& port: overbudget_ports) {
-                if (port.priority < max_prio) {
-                    max_prio = port.priority;
+                if (port->priority < max_prio) {
+                    max_prio = port->priority;
                     max_prio_ind = ind_cnt;
                 }
                 ind_cnt++;
             }
-            syslog(LOG_INFO, "Enable %d of controller %s\n",
-                   overbudget_ports.at(max_prio_ind).index,
-                   overbudget_ports.at(max_prio_ind).contr_path.c_str());
-            if (!overbudget_ports.at(max_prio_ind).powerOn()) {
-                syslog(LOG_ERR, "Can't power on PoE port %d of controller %s\n",
-                       overbudget_ports.at(max_prio_ind).index,
-                       overbudget_ports.at(max_prio_ind).contr_path.c_str());
-                return -1;
+            if (max_prio_ind >= 0) {
+                syslog(LOG_INFO, "Enable %d port of controller %s\n",
+                       overbudget_ports.at(max_prio_ind)->index,
+                       overbudget_ports.at(max_prio_ind)->contr_path.c_str());
+                if (!overbudget_ports.at(max_prio_ind)->powerOn()) {
+                    syslog(LOG_ERR, "Can't power on PoE port %d of controller %s\n",
+                           overbudget_ports.at(max_prio_ind)->index,
+                           overbudget_ports.at(max_prio_ind)->contr_path.c_str());
+                    return -1;
+                }
+                overbudget_ports.at(max_prio_ind)->overbudget_flag = false;
             }
-            overbudget_ports.at(max_prio_ind).overbudget_flag = false;
         }
     }
     return 0;
+}
+
+static void getJsonFromControllers(vector<PoeController>& controllers) {
+
 }
