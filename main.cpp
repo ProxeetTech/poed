@@ -319,7 +319,7 @@ static string getJsonFromControllersSer(vector<PoeController>& controllers) {
     return getJsonFromControllers(controllers).dump(4);  // "4" sets tabs for formatting output
 }
 
-void handleUnixSocketServer(const std::string& socket_path, vector<PoeController>& controllers) {
+static void handleUnixSocketServer(const std::string& socket_path, vector<PoeController>& controllers) {
     int server_sock, client_sock;
     struct sockaddr_un server_addr;
 
