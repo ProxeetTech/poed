@@ -127,126 +127,134 @@ The daemon will return a JSON response containing the current PoE status of all 
 
 ```json
 {
-    "data": [
-        {
-            "ports": [
-                {
-                    "budget": 15.0,
-                    "current": 0.0,
-                    "enable_flag": true,
-                    "index": 0,
-                    "mode": "mode",
-                    "name": "eth9",
-                    "overbudget_flag": false,
-                    "power": 0.0,
-                    "priority": 1,
-                    "state": "6(OPEN)",
-                    "voltage": 0.0
-                },
-                {
-                    "budget": 15.0,
-                    "current": 0.0,
-                    "enable_flag": true,
-                    "index": 1,
-                    "mode": "mode",
-                    "name": "eth10",
-                    "overbudget_flag": false,
-                    "power": 0.0,
-                    "priority": 2,
-                    "state": "6(OPEN)",
-                    "voltage": 0.0
-                },
-                {
-                    "budget": 15.0,
-                    "current": 0.492,
-                    "enable_flag": true,
-                    "index": 2,
-                    "mode": "mode",
-                    "name": "eth11",
-                    "overbudget_flag": false,
-                    "power": 12.1524,
-                    "priority": 2,
-                    "state": "4(DET_OK)",
-                    "voltage": 24.7
-                },
-                {
-                    "budget": 15.0,
-                    "current": 0.364,
-                    "enable_flag": true,
-                    "index": 3,
-                    "mode": "mode",
-                    "name": "eth12",
-                    "overbudget_flag": false,
-                    "power": 8.881599999999999,
-                    "priority": 2,
-                    "state": "4(DET_OK)",
-                    "voltage": 24.4
-                }
-            ],
-            "total_budget": 120.0,
-            "total_power": 21.034
-        },
-        {
-            "ports": [
-                {
-                    "budget": 15.0,
-                    "current": 0.362,
-                    "enable_flag": true,
-                    "index": 0,
-                    "mode": "mode",
-                    "name": "eth13",
-                    "overbudget_flag": false,
-                    "power": 8.760399999999999,
-                    "priority": 2,
-                    "state": "4(DET_OK)",
-                    "voltage": 24.2
-                },
-                {
-                    "budget": 15.0,
-                    "current": 0.0,
-                    "enable_flag": true,
-                    "index": 1,
-                    "mode": "mode",
-                    "name": "eth14",
-                    "overbudget_flag": false,
-                    "power": 0.0,
-                    "priority": 2,
-                    "state": "6(OPEN)",
-                    "voltage": 0.0
-                },
-                {
-                    "budget": 15.0,
-                    "current": 0.0,
-                    "enable_flag": true,
-                    "index": 2,
-                    "mode": "mode",
-                    "name": "eth15",
-                    "overbudget_flag": false,
-                    "power": 0.0,
-                    "priority": 2,
-                    "state": "6(OPEN)",
-                    "voltage": 0.0
-                },
-                {
-                    "budget": 15.0,
-                    "current": 0.361,
-                    "enable_flag": true,
-                    "index": 3,
-                    "mode": "mode",
-                    "name": "eth16",
-                    "overbudget_flag": false,
-                    "power": 8.8445,
-                    "priority": 2,
-                    "state": "4(DET_OK)",
-                    "voltage": 24.5
-                }
-            ],
-            "total_budget": 120.0,
-            "total_power": 17.6049
-        }
-    ],
-    "error_msg": "",
-    "msg_type": "response"
+   "data": [
+      {
+         "ports": [
+            {
+               "budget": 15.0,
+               "current": 0.126,
+               "enable_flag": true,
+               "index": 0,
+               "load_class": "6(0)",
+               "mode": "AUTO",
+               "name": "eth9",
+               "overbudget_flag": false,
+               "power": 6.0858,
+               "priority": 1,
+               "state": "4(DET_OK)",
+               "voltage": 48.3
+            },
+            {
+               "budget": 15.0,
+               "current": 0.134,
+               "enable_flag": true,
+               "index": 1,
+               "load_class": "6(0)",
+               "mode": "AUTO",
+               "name": "eth10",
+               "overbudget_flag": false,
+               "power": 6.4052,
+               "priority": 2,
+               "state": "4(DET_OK)",
+               "voltage": 47.8
+            },
+            {
+               "budget": 15.0,
+               "current": 0.075,
+               "enable_flag": true,
+               "index": 2,
+               "load_class": "6(0)",
+               "mode": "AUTO",
+               "name": "eth11",
+               "overbudget_flag": false,
+               "power": 3.5999999999999996,
+               "priority": 2,
+               "state": "4(DET_OK)",
+               "voltage": 48.0
+            },
+            {
+               "budget": 15.0,
+               "current": 0.131,
+               "enable_flag": true,
+               "index": 3,
+               "load_class": "6(0)",
+               "mode": "AUTO",
+               "name": "eth12",
+               "overbudget_flag": false,
+               "power": 6.301100000000001,
+               "priority": 2,
+               "state": "4(DET_OK)",
+               "voltage": 48.1
+            }
+         ],
+         "total_budget": 120.0,
+         "total_power": 22.392100000000003
+      },
+      {
+         "ports": [
+            {
+               "budget": 15.0,
+               "current": 0.128,
+               "enable_flag": true,
+               "index": 0,
+               "load_class": "6(0)",
+               "mode": "AUTO",
+               "name": "eth13",
+               "overbudget_flag": false,
+               "power": 6.041600000000001,
+               "priority": 2,
+               "state": "4(DET_OK)",
+               "voltage": 47.2
+            },
+            {
+               "budget": 15.0,
+               "current": 0.143,
+               "enable_flag": true,
+               "index": 1,
+               "load_class": "6(0)",
+               "mode": "AUTO",
+               "name": "eth14",
+               "overbudget_flag": false,
+               "power": 6.7353,
+               "priority": 2,
+               "state": "4(DET_OK)",
+               "voltage": 47.1
+            },
+            {
+               "budget": 15.0,
+               "current": 0.106,
+               "enable_flag": true,
+               "index": 2,
+               "load_class": "6(0)",
+               "mode": "AUTO",
+               "name": "eth15",
+               "overbudget_flag": false,
+               "power": 5.194,
+               "priority": 2,
+               "state": "4(DET_OK)",
+               "voltage": 49.0
+            },
+            {
+               "budget": 15.0,
+               "current": 0.134,
+               "enable_flag": true,
+               "index": 3,
+               "load_class": "6(0)",
+               "mode": "AUTO",
+               "name": "eth16",
+               "overbudget_flag": false,
+               "power": 6.4856,
+               "priority": 2,
+               "state": "4(DET_OK)",
+               "voltage": 48.4
+            }
+         ],
+         "total_budget": 120.0,
+         "total_power": 24.4565
+      }
+   ],
+   "error_msg": "",
+   "msg_type": "response"
 }
 
 ```

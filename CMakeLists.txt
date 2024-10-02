@@ -5,18 +5,13 @@ set(CMAKE_CXX_STANDARD 11)
 
 find_library(UCI_LIBRARY NAMES uci PATHS ${CMAKE_SYSROOT}/usr/lib)
 
-add_executable(poed main.cpp
-        main.cpp
-        utils.cpp
-        utils.h
-        logs.cpp
-        logs.h
-        uci_config.cpp
-        uci_config.h
-        poe_controller.cpp
-        poe_controller.h
-        poe_simulator.cpp
-        poe_simulator.h)
+add_executable(poed src/main.cpp
+        src/utils.cpp
+        src/logs.cpp
+        src/uci_config.cpp
+        src/poe_controller.cpp
+        src/poe_simulator.cpp
+        src/main_utils.cpp)
 
 target_link_libraries(poed ${UCI_LIBRARY})
-include_directories(poed libs/clipp/include libs/json/include)
+include_directories(poed libs/clipp/include libs/json/include inc)

@@ -21,7 +21,7 @@ private:
     string poe_class;
     bool enabled;
 
-    string to_string(double value, int precision);
+    static string to_string(double value, int precision);
 
 public:
     PoeSimProfile(int steps, double volt, double volt_var,
@@ -48,7 +48,7 @@ public:
     PoePortSim(vector<PoeSimProfile> profiles);
     PoePortSim();
 
-    void addProfile(PoeSimProfile profile);
+    void addProfile(const PoeSimProfile& profile);
     vector<string> getData();
     void reset();
 
@@ -61,7 +61,7 @@ private:
     vector<PoePortSim> ports_data;
 
 public:
-    void addPortSim(PoePortSim port_sim);
+    void addPortSim(const PoePortSim& port_sim);
     vector<string> getData();
 };
 

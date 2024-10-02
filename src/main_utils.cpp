@@ -1,200 +1,21 @@
-#include "utils.h"
+#include "main_utils.h"
 #include "logs.h"
-#include "clipp.h"
 #include "poe_controller.h"
 #include "poe_simulator.h"
-#include <nlohmann/json.hpp>
-#include <unistd.h>
-#include <thread>
-#include <iostream>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <poll.h>
+#include <nlohmann/json.hpp>
+#include <unistd.h>
 
-bool test_mode = false;
-
-static nlohmann::json getJsonFromControllers(vector<PoeController>& controllers);
-static string getJsonFromControllersSer(vector<PoeController>& controllers);
-static void handleUnixSocketServer(const std::string& socket_path, vector<PoeController>& controllers);
-static int controlBudgets(vector<PoeController>& controllers);
-static void controlBudgetsWithSleep(vector<PoeController>& controllers, int sleep_time_us);
-static string requestFromUnixSocket(const string& socket_path, const string& message, int timeout_ms);
-
-int main(int argc, char *argv[]) {
-    /* Parse command line arguments */
-    vector<string> wrong;
-    bool show_help = false;
-    bool get_data_flag = false;
-    int monitor_period_us = 1000000;
-
-    auto cli = (
-            clipp::option("-p", "--monitor-period") &
-            clipp::value("PoE ports monitoring period in us (default 1000000 us)", monitor_period_us),
-            clipp::option("-t").set(test_mode).doc("Enable test mode that emulates PoE ports data"),
-            clipp::option("-g", "--get-all").set(get_data_flag).doc("Print all PoE data to stdout in "
-                                                                "JSON format. The daemon must be "
-                                                                "running to have this option workable"),
-            clipp::option("-h", "--help").set(show_help).doc("Show help information"),
-            clipp::any_other(wrong)
-    );
-
-    if (clipp::parse(argc, argv, cli) && wrong.empty()) {
-        if (show_help) {
-            cout << "Usage:\n" << clipp::make_man_page(cli, argv[0]) << '\n';
-            return 0;
-        }
-
-        if (!get_data_flag) cout << "PoE daemon started, with monitor period: " << monitor_period_us << " us" << endl;
-        if (test_mode) {
-            syslog(LOG_INFO, "Test mode enabled\n");
-        }
-    } else {
-        for (const auto &arg : wrong) {
-            cout << "'" << arg << "' is not a valid command line argument\n";
-        }
-        cout << "Usage:\n" << clipp::make_man_page(cli, argv[0]) << '\n';
-        return -1;
-    }
-
-    /* Process UCI config */
-    const char* config_name = "poed";
-    const string config_path = "/etc/config/poed";
-
-    initialize_logging(config_name, get_syslog_level("debug"));
-    UciConfig config(config_name);
-    if (!config.exists()) {
-        syslog(LOG_ERR, "Configuration doesn't exist, create default one\n");
-        create_default_config(config_path);
-    }
-
-    if (!config.import()) {
-        syslog(LOG_ERR, "Configuration import error\n");
-    }
-
-    if (test_mode) {
-        syslog(LOG_INFO, "PoE daemon working in test mode, skip UCI config validation\n");
-    } else {
-        /* Check config */
-        if (!validateUciConfig(config)) {
-            syslog(LOG_ERR, "Configuration is not valid\n");
-            return -1;
-        }
-    }
-
-    auto sections = config.getSections();
-
-    /* Get unix socket server options */
-    string unix_socket_enable = sections["general"].at(0).options["unix_socket_enable"];
-    string unix_socket_path = sections["general"].at(0).options["unix_socket_path"];
-
-    /* Reinitialize logger with proper log level */
-    string log_level_str = sections["general"].at(0).options["log_level"];
-    int log_level = get_syslog_level(log_level_str);
-
-    closelog();
-    initialize_logging(config_name, log_level);
-
-    /* Check if the daemon is already running */
-    string command = "pgrep -x poed | grep -v " + to_string(getpid()) + " > /dev/null 2>&1";
-    syslog(LOG_DEBUG, "Run: %s to check if the daemon is already running\n", command.c_str());
-    int result = system(command.c_str());
-    if (!result) {
-        /* Check if new process was started with -g flag */
-        syslog(LOG_DEBUG, "Running instance found in the processes: %d\n", result);
-        if (get_data_flag) {
-            syslog(LOG_DEBUG, "This instance started with flag '--get-all'\n");
-            if (unix_socket_enable != "1") {
-                syslog(LOG_ERR, "Using of unix socket server is disabled in config file, exiting\n");
-                cerr << "Using of unix socket server is disabled in config file, exiting\n";
-                return -1;
-            }
-            nlohmann::json msg = {
-                    {"msg_type", "request"},
-                    {"data", "get_all"}
-            };
-
-            string response = requestFromUnixSocket(unix_socket_path, msg.dump(4), 2000);
-            syslog(LOG_DEBUG, "Requested data result: %s\n", response.c_str());
-            cout << response << "\n";
-            return 0;
-        } else {
-            syslog(LOG_ERR, "Attempt to start the instance of the daemon while it's already working\n");
-            cerr << "Attempt to start the instance of the daemon while it's already working\n";
-            return -1;
-        }
-    }
-    if (get_data_flag) {
-        syslog(LOG_ERR, "Running instance of daemon was not found, start it before request PoE data\n");
-        cerr << "Running instance of daemon was not found, start it before request PoE data\n";
-        return -1;
-    }
-
-//    cout << "Imported config:\n";
-//    config.dump();
-
-    syslog(LOG_INFO, "Daemon started with log level: %s", log_level_str.c_str());
-
-    /* Parse uci config class into binary poe structures */
-    syslog(LOG_INFO, "Parse UCI config into binary structures\n");
-    int contr_ind = 0;
-    vector<PoeController> controllers;
-    for (auto& controller: sections["controller"]) {
-        /* Get controller properties */
-        PoeController c;
-        c.path = controller.options["path"];
-        c.total_budget = stod(controller.options["total_power_budget"]);
-        c.ports.resize(stoi(controller.options["ports"]));
-
-        /* Fill controller's ports vector with corresponded ports */
-        for (auto port: sections["port"]) {
-            if (stoi(port.options["controller"]) == contr_ind) {
-                PoePort p;
-                p.contr_path = c.path;
-                p.name = port.options["name"];
-                p.index = stoi(port.options["port_number"]);
-                p.budget = stod(port.options["power_budget"]);
-                p.priority = stoi(port.options["priority"]);
-
-                /* Set system test mode flag to port */
-                p.test_mode = test_mode;
-                p.initSim();
-
-                /* Set current port with corresponded mode */
-                if (!p.setMode(parsePoeMode(port.options["mode"]))) {
-                    syslog(LOG_ERR, "Can't set mode %s to port %d, of controller %s\n",
-                           port.options["mode"].c_str(), p.index, p.contr_path.c_str());
-                    return -1;
-                }
-
-                c.ports.at(p.index) = p;
-            }
-        }
-        controllers.push_back(c);
-        contr_ind++;
-    }
-
-    /* Controlling budgets */
-    thread budgetThread(controlBudgetsWithSleep, std::ref(controllers), monitor_period_us);
-    if (unix_socket_enable == "1") {
-        thread unixSocketServerThread(handleUnixSocketServer, unix_socket_path, std::ref(controllers));
-        unixSocketServerThread.join();
-    }
-    budgetThread.join();
-
-    syslog(LOG_INFO, "Daemon is shutting down");
-    closelog();
-
-    return 0;
-}
-
-static void controlBudgetsWithSleep(vector<PoeController>& controllers, int sleep_time_us) {
+void controlBudgetsWithSleep(vector<PoeController>& controllers, int sleep_time_us) {
     while (controlBudgets(controllers) >= 0) {
         /* Sleep for some time */
         usleep(sleep_time_us);
     }
 }
 
-static int controlBudgets(vector<PoeController>& controllers) {
+int controlBudgets(vector<PoeController>& controllers) {
     for (PoeController& controller: controllers) {
         if (!controller.getPortsData()) {
             syslog(LOG_ERR, "Can't acquire ports data\n");
@@ -270,11 +91,23 @@ static int controlBudgets(vector<PoeController>& controllers) {
                 overbudget_ports.at(max_prio_ind)->overbudget_flag = false;
             }
         }
+
+        /* Workaround for turning on PoE ports in manual mode that turns off without load */
+        for (auto& port: controller.ports) {
+            if (port.enable_flag &&
+                (port.mode == PoeMode::POE_48V || port.mode == PoeMode::POE_24V)) {
+                if (!port.powerOn()) {
+                    syslog(LOG_ERR, "Can't power on PoE port %d of controller %s\n",
+                           port.index, port.contr_path.c_str());
+                    return -1;
+                }
+            }
+        }
     }
     return 0;
 }
 
-static nlohmann::json getJsonFromControllers(vector<PoeController>& controllers) {
+nlohmann::json getJsonFromControllers(vector<PoeController>& controllers) {
     nlohmann::json j_controllers = nlohmann::json::array();
 
     for (const auto& controller : controllers) {
@@ -294,8 +127,8 @@ static nlohmann::json getJsonFromControllers(vector<PoeController>& controllers)
                     {"power", port.power},
                     {"budget", port.budget},
                     {"state", port.state_str},
-                    {"mode", port.mode_str},
-                    {"mode", port.load_type_str},
+                    {"mode", poeModeToString(port.mode)},
+                    {"load_class", port.load_type_str},
                     {"enable_flag", port.enable_flag},
                     {"overbudget_flag", port.overbudget_flag}
             };
@@ -315,11 +148,11 @@ static nlohmann::json getJsonFromControllers(vector<PoeController>& controllers)
     return j_controllers;
 }
 
-static string getJsonFromControllersSer(vector<PoeController>& controllers) {
+string getJsonFromControllersSer(vector<PoeController>& controllers) {
     return getJsonFromControllers(controllers).dump(4);  // "4" sets tabs for formatting output
 }
 
-static void handleUnixSocketServer(const std::string& socket_path, vector<PoeController>& controllers) {
+void handleUnixSocketServer(const std::string& socket_path, vector<PoeController>& controllers) {
     int server_sock, client_sock;
     struct sockaddr_un server_addr;
 
@@ -459,18 +292,11 @@ static void handleUnixSocketServer(const std::string& socket_path, vector<PoeCon
             }
         }
     }
-
-//    /* Close the client and server sockets */
-//    close(client_sock);
-//    close(server_sock);
-//
-//    /* Remove the socket file */
-//    unlink(socket_path.c_str());
 }
 
-static string requestFromUnixSocket(const string& socket_path, const string& message, int timeout_ms) {
+string requestFromUnixSocket(const string& socket_path, const string& message, int timeout_ms) {
     int sock;
-    struct sockaddr_un server_addr;
+    struct sockaddr_un server_addr{};
 
     /* Create a socket */
     if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
@@ -495,7 +321,7 @@ static string requestFromUnixSocket(const string& socket_path, const string& mes
     }
 
     /* Wait for the response with a timeout */
-    struct pollfd pfd;
+    struct pollfd pfd{};
     pfd.fd = sock;
     pfd.events = POLLIN;  // We are interested in reading
 
@@ -515,7 +341,7 @@ static string requestFromUnixSocket(const string& socket_path, const string& mes
     if (num_bytes > 0) {
         buffer[num_bytes] = '\0';  // Null-terminate the received string
         close(sock);
-        return string(buffer);  // Return the received response
+        return buffer;  // Return the received response
     } else {
         close(sock);
         return "Failed to receive response";

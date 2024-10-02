@@ -53,12 +53,12 @@ string PoeSimProfile::getPortInfo() { //i.e.: "0 eth14 auto 0.0 0.000"
         c = 0.0;
     }
     string result = string("N ethX mode ") + to_string(v, 1) + string(" ") +
-            to_string(c, 3) + string("\n");
+            to_string(c, 3) + string(" \n");
     return result;
 }
 
 string PoeSimProfile::getPortStatus() { //i.e.: "0 eth14 6(OPEN) 0(Unknown)"
-    string result = string("N ethX ") + state + string(" ") + poe_class + string("\n");
+    string result = string("N ethX ") + state + string(" ") + poe_class + string(" \n");
     return result;
 }
 
@@ -96,7 +96,7 @@ PoePortSim::PoePortSim() {
     curr_profile = 0;
 }
 
-void PoePortSim::addProfile(PoeSimProfile profile) {
+void PoePortSim::addProfile(const PoeSimProfile& profile) {
     sim_profiles.push_back(profile);
 }
 
@@ -136,7 +136,7 @@ void PoePortSim::turnOn() {
 }
 
 
-void PoeDataSim::addPortSim(PoePortSim port_sim) {
+void PoeDataSim::addPortSim(const PoePortSim& port_sim) {
     ports_data.push_back(port_sim);
 }
 

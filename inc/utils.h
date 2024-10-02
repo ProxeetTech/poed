@@ -35,5 +35,7 @@ int countLines(const std::string& content, char comment_char);
 bool validateUciConfig(const UciConfig& config);
 std::string getLineByIndex(const std::string& content, int index, char commentChar);
 std::string getSubstringByIndex(const std::string& input, int index);
+string requestFromUnixSocket(const string& socket_path, const string& message, int timeout_ms);
+
 
 #endif //ROUTER_POED_UTILS_H
