@@ -62,17 +62,18 @@ bool PoePort::getData() {
         port_status_str = getLineByIndex(portstat, index, '#'); //i.e: 0 eth14 6(OPEN) 0(Unknown)
     }
 
-    string port_mode_str = getSubstringByIndex(port_params_str, 2);
-    string port_voltage_str = getSubstringByIndex(port_params_str, 3);
-    string port_current_str = getSubstringByIndex(port_params_str, 4);
-    string port_state_str = getSubstringByIndex(port_status_str, 2);
+    mode_str = getSubstringByIndex(port_params_str, 2);
+    voltage_str = getSubstringByIndex(port_params_str, 3);
+    current_str = getSubstringByIndex(port_params_str, 4);
+    state_str = getSubstringByIndex(port_status_str, 2);
+    load_type_str = getSubstringByIndex(port_status_str, 3);
 
-    cout << this->name << ": " << port_params_str;
-    cout << this->name << ": " << port_status_str;
+//    cout << this->name << ": " << port_params_str;
+//    cout << this->name << ": " << port_status_str;
 
-    state = states[port_state_str];
-    voltage = stod(port_voltage_str);
-    current = stod(port_current_str);
+    state = states[state_str];
+    voltage = stod(voltage_str);
+    current = stod(current_str);
     power = voltage * current;
     return true;
 }
@@ -119,10 +120,9 @@ bool PoePort::powerOn() {
     return true;
 }
 
-bool PoePort::setMode(enum PoeMode mode) {
-    if (test_mode) {
-        return true;
-    }
+bool PoePort::setMode(enum PoeMode new_mode) {
+    syslog(LOG_INFO, "Set mode %s for PoE port %d, controller %s\n",
+           poeModeToString(new_mode).c_str(), index, contr_path.c_str());
 
     string poe_mode_path = contr_path + string("/port_mode");
     if (!powerOff()) {
@@ -130,25 +130,29 @@ bool PoePort::setMode(enum PoeMode mode) {
     }
     syslog(LOG_DEBUG, "PoE port %d power off, controller %s\n", index, contr_path.c_str());
 
-    switch (mode) {
+    switch (new_mode) {
         case PoeMode::POE_OFF:
             return true;
         case PoeMode::POE_AUTO:
-            try {
-                echo(poe_mode_path, to_string(index) + string("auto"));
-                syslog(LOG_DEBUG, "PoE port %d set mode auto, controller %s\n", index, contr_path.c_str());
-            } catch (const exception& e) {
-                syslog(LOG_ERR, "Path %s can not be opened\n", poe_mode_path.c_str());
-                return false;
+            if (!test_mode) {
+                try {
+                    echo(poe_mode_path, to_string(index) + string("auto"));
+                    syslog(LOG_DEBUG, "PoE port %d set mode auto, controller %s\n", index, contr_path.c_str());
+                } catch (const exception& e) {
+                    syslog(LOG_ERR, "Path %s can not be opened\n", poe_mode_path.c_str());
+                    return false;
+                }
             }
             break;
         case PoeMode::POE_48V:
-            try {
-                echo(poe_mode_path, to_string(index) + string("manual"));
-                syslog(LOG_DEBUG, "PoE port %d set mode manual, controller %s\n", index, contr_path.c_str());
-            } catch (const exception& e) {
-                syslog(LOG_ERR, "Path %s can not be opened\n", poe_mode_path.c_str());
-                return false;
+            if (!test_mode) {
+                try {
+                    echo(poe_mode_path, to_string(index) + string("manual"));
+                    syslog(LOG_DEBUG, "PoE port %d set mode manual, controller %s\n", index, contr_path.c_str());
+                } catch (const exception &e) {
+                    syslog(LOG_ERR, "Path %s can not be opened\n", poe_mode_path.c_str());
+                    return false;
+                }
             }
             break;
         case PoeMode::POE_24V:
@@ -158,10 +162,11 @@ bool PoePort::setMode(enum PoeMode mode) {
             return false;
     }
 
-    if (!powerOff()) {
+    if (!powerOn()) {
         return false;
     }
     syslog(LOG_DEBUG, "PoE port %d power on, controller %s\n", index, contr_path.c_str());
+    this->mode = new_mode;
 
     return true;
 }
@@ -220,4 +225,57 @@ PoePort& PoeController::getLowesPrioPort() {
         }
     }
     return ports.at(lowest_prio_ind);
+}
+
+
+
+string poeStateToString(PoeState state) {
+    // Iterate over the map to find the corresponding string
+    for (const auto& pair : states) {
+        if (pair.second == state) {
+            return pair.first;  // Return the corresponding string
+        }
+    }
+
+    // Log an error to syslog if the state is not found
+    syslog(LOG_ERR, "Invalid PoE state value. Returning 'UNKNOWN'.");
+    return "UNKNOWN";  // Return default string if not found
+}
+
+enum PoeMode parsePoeMode(const string& mode) {
+    map<string, enum PoeMode> modes = {
+            {"AUTO", PoeMode::POE_AUTO},
+            {"48V", PoeMode::POE_48V},
+            {"24V", PoeMode::POE_24V},
+            {"OFF", PoeMode::POE_OFF}
+    };
+
+    /* Check if the mode exists in the map */
+    auto it = modes.find(mode);
+    if (it == modes.end()) {
+        /* Log an error to syslog if the mode is not found */
+        syslog(LOG_ERR, "Invalid PoE mode: %s. Defaulting to POE_OFF.", mode.c_str());
+        return PoeMode::POE_OFF;  // Return the default value POE_OFF
+    }
+    return it->second;  // Return the corresponding PoeMode value
+}
+
+string poeModeToString(PoeMode mode) {
+    /* Map from PoeMode to string */
+    map<PoeMode, std::string> modeToStringMap = {
+            {PoeMode::POE_AUTO, "AUTO"},
+            {PoeMode::POE_48V, "48V"},
+            {PoeMode::POE_24V, "24V"},
+            {PoeMode::POE_OFF, "OFF"}
+    };
+
+    /* Check if the mode exists in the map */
+    auto it = modeToStringMap.find(mode);
+    if (it == modeToStringMap.end()) {
+        /* Log an error to syslog if the mode is not found */
+        syslog(LOG_ERR, "Invalid PoE mode value. Returning 'UNKNOWN'.");
+        return "UNKNOWN";  // Return default string "UNKNOWN"
+    }
+
+    return it->second;  // Return the corresponding string value
 }

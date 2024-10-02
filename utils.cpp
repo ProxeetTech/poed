@@ -17,9 +17,6 @@ void create_default_config(const std::string& config_path) {
     config_file << "\toption log_level 'debug'                         # Log level: debug, info, notice, warning, err, crit, alert, emerg\n";
     config_file << "\toption unix_socket_enable '1'                    # Enable (1) or disable (0) the unix socket server\n";
     config_file << "\toption unix_socket_path '/var/run/poed.sock'     # Path to the Unix socket used for inter-process communication\n";
-    config_file << "\toption websocket_enable '1'                      # Enable (1) or disable (0) the WebSocket server\n";
-    config_file << "\toption websocket_port '8085'                     # Port number for the WebSocket server\n";
-    config_file << "\toption websocket_bind_address '127.0.0.1'        # Bind address: '0.0.0.0' for all interfaces, '127.0.0.1' for localhost\n";
     config_file << "\n";
 
     config_file << "config controller\n";
@@ -288,22 +285,4 @@ bool validateUciConfig(const UciConfig& config) {
     /* Configuration is valid */
     syslog(LOG_INFO, "Configuration is valid");
     return true;
-}
-
-enum PoeMode parsePoeMode(const string& mode) {
-    map<string, enum PoeMode> modes = {
-            {"AUTO", PoeMode::POE_AUTO},
-            {"48V", PoeMode::POE_48V},
-            {"24V", PoeMode::POE_24V},
-            {"OFF", PoeMode::POE_OFF}
-    };
-
-    /* Check if the mode exists in the map */
-    auto it = modes.find(mode);
-    if (it == modes.end()) {
-        /* Log an error to syslog if the mode is not found */
-        syslog(LOG_ERR, "Invalid PoE mode: %s. Defaulting to POE_OFF.", mode.c_str());
-        return PoeMode::POE_OFF;  // Return the default value POE_OFF
-    }
-    return it->second;  // Return the corresponding PoeMode value
 }

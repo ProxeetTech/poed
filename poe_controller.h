@@ -23,6 +23,11 @@ struct PoePort {
     double budget;
     bool test_mode;
     PoePortSim port_sim;
+    string mode_str;
+    string voltage_str;
+    string current_str;
+    string state_str;
+    string load_type_str;
 
     PoePort();
 
@@ -41,5 +46,9 @@ struct PoeController {
     bool getPortsData();
     PoePort& getLowesPrioPort();
 };
+
+enum PoeMode parsePoeMode(const string& mode);
+string poeModeToString(PoeMode mode);
+string poeStateToString(PoeState state);
 
 #endif //POED_POE_CONTROLLER_H

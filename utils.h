@@ -36,7 +36,4 @@ bool validateUciConfig(const UciConfig& config);
 std::string getLineByIndex(const std::string& content, int index, char commentChar);
 std::string getSubstringByIndex(const std::string& input, int index);
 
-enum PoeMode parsePoeMode(const string& mode);
-bool setPoeMode(const string& controller_path, enum PoeMode mode, uint8_t port);
-
 #endif //ROUTER_POED_UTILS_H

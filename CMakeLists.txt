@@ -19,4 +19,4 @@ add_executable(poed main.cpp
         poe_simulator.h)
 
 target_link_libraries(poed ${UCI_LIBRARY})
-include_directories(poed clipp/include)
+include_directories(poed clipp/include json/include)
