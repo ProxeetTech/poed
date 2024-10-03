@@ -11,18 +11,21 @@
 
 bool test_mode = false;
 
+static void daemonize();
 
 int main(int argc, char *argv[]) {
     /* Parse command line arguments */
     vector<string> wrong;
     bool show_help = false;
     bool get_data_flag = false;
+    bool daemonize_flag = false;
     int monitor_period_us = 1000000;
 
     auto cli = (
             clipp::option("-p", "--monitor-period") &
             clipp::value("PoE ports monitoring period in us (default 1000000 us)", monitor_period_us),
             clipp::option("-t").set(test_mode).doc("Enable test mode that emulates PoE ports data"),
+            clipp::option("-d").set(daemonize_flag).doc("Run in background as a daemon"),
             clipp::option("-g", "--get-all").set(get_data_flag).doc("Print all PoE data to stdout in "
                                                                 "JSON format. The daemon must be "
                                                                 "running to have this option workable"),
@@ -34,6 +37,10 @@ int main(int argc, char *argv[]) {
         if (show_help) {
             cout << "Usage:\n" << clipp::make_man_page(cli, argv[0]) << '\n';
             return 0;
+        }
+
+        if (daemonize_flag) {
+            daemonize();
         }
 
         if (!get_data_flag) cout << "PoE daemon started, with monitor period: " << monitor_period_us << " us" << endl;
@@ -180,3 +187,44 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
+static void daemonize() {
+    /* Fork off the parent process */
+    pid_t pid = fork();
+
+    /* If fork failed, exit the parent process */
+    if (pid < 0) {
+        exit(EXIT_FAILURE);
+    }
+
+    /* If we got a good PID, terminate the parent */
+    if (pid > 0) {
+        exit(EXIT_SUCCESS);
+    }
+
+    /* Create a new session and set the child as session leader */
+    if (setsid() < 0) {
+        exit(EXIT_FAILURE);
+    }
+
+    /* Fork again to ensure the daemon cannot acquire a controlling terminal */
+    pid = fork();
+
+    if (pid < 0) {
+        exit(EXIT_FAILURE);
+    }
+
+    /* Terminate the second parent */
+    if (pid > 0) {
+        exit(EXIT_SUCCESS);
+    }
+
+    /* Change the working directory to root */
+    if (chdir("/") < 0) {
+        exit(EXIT_FAILURE);
+    }
+
+    /* Close standard file descriptors */
+    close(STDIN_FILENO);
+    close(STDOUT_FILENO);
+    close(STDERR_FILENO);
+}
