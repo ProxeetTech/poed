@@ -15,3 +15,5 @@ add_executable(poed src/main.cpp
 
 target_link_libraries(poed ${UCI_LIBRARY})
 include_directories(poed libs/clipp/include libs/json/include inc)
+
+install(TARGETS poed RUNTIME DESTINATION usr/bin)
