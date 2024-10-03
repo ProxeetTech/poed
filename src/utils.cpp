@@ -211,8 +211,7 @@ std::string getSubstringByIndex(const std::string& input, int index) {
 bool validateUciConfig(const UciConfig& config) {
     /* Validate the 'general' section */
     std::vector<std::string> general_options = {
-            "log_level", "unix_socket_enable", "unix_socket_path",
-            "websocket_enable", "websocket_port", "websocket_bind_address"
+            "log_level", "unix_socket_enable", "unix_socket_path"
     };
     if (!config.validateSection("general", 1, general_options)) {
         return false;
