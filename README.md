@@ -1,11 +1,14 @@
 
-# PoE Daemon (PoED) - README
+# PoE Daemon (poed) - README
+
+### Author 
+Aleksei Vasilenko, a.vasilenko@proxeet.com
 
 ## Introduction
 
-The PoE Daemon (PoED) is a background service that monitors and manages Power over Ethernet (PoE) ports on your system. It allows you to control budgets, collect power usage data, and communicate with the daemon through a Unix socket. The daemon can also run in test mode, simulating PoE data for testing purposes.
+The PoE Daemon (***poed***) is a background service that monitors and manages Power over Ethernet (PoE) ports on your system. It allows you to control budgets, collect power usage data, and communicate with the daemon through a Unix socket. The daemon can also run in test mode, simulating PoE data for testing purposes.
 
-This README provides instructions for building, running, and using the PoED service.
+This README provides instructions for building, running, and using the **poed** service.
 
 ## Features
 
@@ -65,43 +68,50 @@ config port
 
 ### Command-line Arguments
 
-| Argument                | Description                                                                 |
-|-------------------------|-----------------------------------------------------------------------------|
-| `-p, --monitor-period`   | Sets the PoE ports monitoring period in microseconds (default is 1000000 us). |
-| `-t`                    | Enables test mode, simulating PoE port data.                                |
-| `-g, --get-all`          | Prints all PoE data in JSON format to stdout (requires the daemon to be running). |
-| `-h, --help`             | Displays help information for the available command-line options.           |
+| Argument               | Description                                                                       |
+|------------------------|-----------------------------------------------------------------------------------|
+| `-p, --monitor-period` | Sets the PoE ports monitoring period in microseconds (default is 1000000 us).     |
+| `-t`                   | Enables test mode, simulating PoE port data.                                      |
+| `-d`                   | Run in background as a daemon                                                     |
+| `-g, --get-all`        | Prints all PoE data in JSON format to stdout (requires the daemon to be running). |
+| `-h, --help`           | Displays help information for the available command-line options.                 |
 
 ### Example Usage:
 
-1. **Start the daemon** with the default monitoring period (1 second):
+1. Start the daemon with the default monitoring period (1 second) in current terminal:
 
     ```bash
     ./poed
     ```
 
-2. **Start the daemon in test mode**:
+2. Start the daemon in test mode in current terminal:
 
     ```bash
     ./poed -t
     ```
 
-3. **Specify a custom monitoring period (e.g., 500ms)**:
+3. Specify a custom monitoring period (e.g., 500ms) in current terminal:
 
     ```bash
     ./poed --monitor-period 500000
     ```
 
-4. **Get all PoE data in JSON format** (requires the daemon to be running):
+4. Get all PoE data in JSON format to stdout (requires the daemon to be running):
 
     ```bash
     ./poed --get-all
     ```
 
-5. **Show help information**:
+5. Show help information:
 
     ```bash
     ./poed --help
+    ```
+
+6. Run daemon in the background:
+
+    ```bash
+    ./poed -d
     ```
 
 ## Unix Socket Communication
@@ -117,7 +127,8 @@ Note that all the messages for socket communication have 3 fields:
 
 To request PoE data from the daemon, you can send the message `"get_all"` using the Unix socket. The daemon will respond with all PoE data in JSON format.
 
-You can use a client tool (or write your own) to communicate with the Unix socket. Below is an example of how to send a request using a tool like `socat`:
+***Fast debug:***
+You can use a client tool to communicate with the Unix socket. Below is an example of how to send a request using a tool like `socat`:
 
 ```bash
 echo '{"msg_type": "request", "data": "get_all"}' | socat - UNIX-CONNECT:/var/run/poed.sock
@@ -135,13 +146,13 @@ The daemon will return a JSON response containing the current PoE status of all 
                "current": 0.126,
                "enable_flag": true,
                "index": 0,
-               "load_class": "6(0)",
-               "mode": "AUTO",
+               "load_class": "6(0)", //0(Unknown), 1(1), 2(2), 3(3), 4(4), 5(5), 6(0), 7(Current limit)
+               "mode": "AUTO", //AUTO, 48V, 24V, OFF
                "name": "eth9",
                "overbudget_flag": false,
                "power": 6.0858,
                "priority": 1,
-               "state": "4(DET_OK)",
+               "state": "4(DET_OK)", //0(NONE), 1(DCP), 2(HIGH_CAP), 3(RLOW), 4(DET_OK), 5(RHIGH), 6(OPEN), 7(DCN)
                "voltage": 48.3
             },
             {
@@ -276,32 +287,36 @@ The PoE daemon uses `syslog` for logging. The logging level is configurable via 
 To view the logs, use the following command (on a typical Linux system):
 
 ```bash
-sudo tail -f /var/log/syslog
+tail -f /var/log/syslog
+cat /var/log/syslog | grep poed
+```
+
+Or on OpenWRT:
+```bash
+cat logread | grep poed
 ```
 
 ## Troubleshooting
 
-### Common Issues:
-
-1. **Daemon Already Running**:
-    - If you try to start the daemon while it's already running, you will receive an error message in the logs.
-
-   Solution: Ensure that no other instance of the PoE daemon is running before starting a new one.
-
-2. **Unix Socket Server Disabled**:
-    - If the Unix socket server is disabled in the configuration file, you cannot use the `--get-all` option to retrieve data.
-
-   Solution: Enable the Unix socket server in the configuration file and restart the daemon.
-
-3. **Missing Configuration File**:
-    - If the UCI configuration file is missing, the daemon will generate a default configuration.
-
-   Solution: Edit the configuration file `/etc/config/poed` to suit your hardware environment.
-
 ### Exiting the Daemon:
 
-To stop the daemon, send a termination signal (e.g., using `kill`):
+To stop the daemon, send a termination signal (e.g., using `kill`), from root user:
 
 ```bash
-sudo killall poed
+killall poed
 ```
+
+### Debug in test mode with simulated PoE data:
+Run in test mode in the background
+```bash
+poed -t -d
+```
+
+Get PoE data to stdout (with test mode flag as well)
+
+```bash
+poed -t -g
+```
+
+Use it for example for debugging on VM where is no PoE driver present. 
+Use test flag here because if the platform has no PoE driver - the config validation will fail, and in test mode config validation is skipping as well
