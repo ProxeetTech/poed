@@ -25,13 +25,16 @@ This README provides instructions for building, running, and using the **poed** 
 To build the PoE daemon, ensure that the necessary dependencies are installed (such as `libuci`).
 
 ```bash
+git clone git@github.com:ProxeetTech/poed.git
+cd poed
+git submodule update --init --recursive
 mkdir build
 cd build
 cmake ..
 make
 ```
 
-This will generate the `poed` binary.
+This will generate the `poed` binary in the build folder.
 
 ## Configuration
 
