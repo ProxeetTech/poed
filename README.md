@@ -1,9 +1,6 @@
 
 # PoE Daemon (poed) - README
 
-### Author 
-Aleksei Vasilenko, a.vasilenko@proxeet.com
-
 ## Introduction
 
 The PoE Daemon (***poed***) is a background service that monitors and manages Power over Ethernet (PoE) ports on your system. It allows you to control budgets, collect power usage data, and communicate with the daemon through a Unix socket. The daemon can also run in test mode, simulating PoE data for testing purposes.
@@ -25,7 +22,7 @@ This README provides instructions for building, running, and using the **poed** 
 
 ## Building
 
-To build the PoE daemon, ensure that the necessary dependencies are installed (such as `libuci`, `nlohmann::json`, and `clipp`).
+To build the PoE daemon, ensure that the necessary dependencies are installed (such as `libuci`).
 
 ```bash
 mkdir build
@@ -320,3 +317,13 @@ poed -t -g
 
 Use it for example for debugging on VM where is no PoE driver present. 
 Use test flag here because if the platform has no PoE driver - the config validation will fail, and in test mode config validation is skipping as well
+
+## License
+
+This project is licensed under the [GNU Lesser General Public License version 3](https://www.gnu.org/licenses/lgpl-3.0.html).
+
+© 2024 Proxeet Limited
+
+Author: Aleksey Vasilenko (a.vasilenko@proxeet.com)
+
+Company contact email: info@proxeet.com
