@@ -312,7 +312,7 @@ vector<pid_t> getProcessIdsByName(const std::string& processName) {
             string d_name = entry->d_name;
             pid_t pid = 0;
             try {
-                pid = std::stoi(d_name);
+                pid = stoi(d_name);
                 if (pid > 0) {
                     ifstream cmdline("/proc/" + to_string(pid) + "/comm");
                     if (cmdline.is_open()) {
@@ -321,7 +321,7 @@ vector<pid_t> getProcessIdsByName(const std::string& processName) {
                             if (!name.empty() && name.back() == '\n') {
                                 name.pop_back();
                             }
-                            if (name == processName) {
+                            if (name == processName && pid != getpid()) {
                                 processIds.push_back(pid);
                             }
                         }

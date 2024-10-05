@@ -110,26 +110,30 @@ int main(int argc, char *argv[]) {
     initialize_logging(config_name, log_level);
 
     /* Check if the daemon is already running */
+    bool procd_found_flag = false;
     vector<pid_t> procd_pids = getProcessIdsByName("procd");
     if (procd_pids.empty()) {
         syslog(LOG_INFO, "procd pid wasn't found\n");
     } else {
         syslog(LOG_INFO, "procd pid: %d\n", procd_pids.at(0));
+        procd_found_flag = true;
     }
 
     vector<pid_t> pids = getProcessIdsByName("poed");
+    bool procd_found_as_ppid = false;
     syslog(LOG_DEBUG, "Detected poed pids:\n");
     for (auto pid: pids) {
         pid_t ppid = getppid();
+        if (procd_found_flag && ppid == procd_pids.at(0)) {
+            procd_found_as_ppid = true;
+        }
         syslog(LOG_DEBUG, "pid: %d, ppid: %d, ppid name: %s\n", pid, ppid, getProcessName(ppid).c_str());
     }
 
-    string command = "pgrep -x poed | grep -v " + to_string(getpid()) + " > /dev/null 2>&1";
-    syslog(LOG_DEBUG, "Run: %s to check if the daemon is already running\n", command.c_str());
-    int result = system(command.c_str());
-    if (!result) {
+    syslog(LOG_DEBUG, "Check if the daemon is already running\n");
+    if (!pids.empty() && !procd_found_as_ppid) {
         /* Check if new process was started with -g flag */
-        syslog(LOG_DEBUG, "Running instance found in the processes: %d\n", result);
+        syslog(LOG_DEBUG, "%zu running instance(s) found in the processes\n", pids.size());
         if (get_data_flag) {
             syslog(LOG_DEBUG, "This instance started with flag '--get-all'\n");
             if (unix_socket_enable != "1") {
