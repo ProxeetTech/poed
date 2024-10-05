@@ -22,7 +22,6 @@
 #include <sstream>
 #include <dirent.h>
 
-
 void create_default_config(const std::string& config_path) {
     std::ofstream config_file(config_path);
     if (!config_file.is_open()) {

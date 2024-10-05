@@ -22,6 +22,7 @@ extern "C" {
 }
 
 #include <string>
+#include <unistd.h>
 #include "uci_config.h"
 
 #define POE_PWR_HYSTERESIS       5
