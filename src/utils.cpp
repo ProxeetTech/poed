@@ -20,6 +20,7 @@
 #include <string>
 #include <iostream>
 #include <sstream>
+#include <dirent.h>
 
 
 void create_default_config(const std::string& config_path) {
@@ -301,4 +302,51 @@ bool validateUciConfig(const UciConfig& config) {
     /* Configuration is valid */
     syslog(LOG_INFO, "Configuration is valid");
     return true;
+}
+
+vector<pid_t> getProcessIdsByName(const std::string& processName) {
+    vector<pid_t> processIds;
+    DIR* dir = opendir("/proc");
+    if (dir) {
+        struct dirent* entry;
+        while ((entry = readdir(dir)) != nullptr) {
+            string d_name = entry->d_name;
+            pid_t pid = 0;
+            try {
+                pid = std::stoi(d_name);
+                if (pid > 0) {
+                    ifstream cmdline("/proc/" + to_string(pid) + "/comm");
+                    if (cmdline.is_open()) {
+                        string name;
+                        if (getline(cmdline, name)) {
+                            if (!name.empty() && name.back() == '\n') {
+                                name.pop_back();
+                            }
+                            if (name == processName) {
+                                processIds.push_back(pid);
+                            }
+                        }
+                    }
+                }
+            } catch (const invalid_argument& e) {
+                continue;
+            } catch (const out_of_range& e) {
+                continue;
+            }
+        }
+        closedir(dir);
+    }
+    return processIds;
+}
+
+string getProcessName(pid_t pid) {
+    ifstream comm_file("/proc/" + to_string(pid) + "/comm");
+    if (comm_file.is_open()) {
+        string name;
+        getline(comm_file, name);
+        comm_file.close();
+        return name;
+    } else {
+        return "";
+    }
 }

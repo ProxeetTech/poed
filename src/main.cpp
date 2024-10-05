@@ -110,6 +110,20 @@ int main(int argc, char *argv[]) {
     initialize_logging(config_name, log_level);
 
     /* Check if the daemon is already running */
+    vector<pid_t> procd_pids = getProcessIdsByName("procd");
+    if (procd_pids.empty()) {
+        syslog(LOG_INFO, "procd pid wasn't found\n");
+    } else {
+        syslog(LOG_INFO, "procd pid: %d\n", procd_pids.at(0));
+    }
+
+    vector<pid_t> pids = getProcessIdsByName("poed");
+    syslog(LOG_DEBUG, "Detected poed pids:\n");
+    for (auto pid: pids) {
+        pid_t ppid = getppid();
+        syslog(LOG_DEBUG, "pid: %d, ppid: %d, ppid name: %s\n", pid, ppid, getProcessName(ppid).c_str());
+    }
+
     string command = "pgrep -x poed | grep -v " + to_string(getpid()) + " > /dev/null 2>&1";
     syslog(LOG_DEBUG, "Run: %s to check if the daemon is already running\n", command.c_str());
     int result = system(command.c_str());
